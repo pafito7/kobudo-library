@@ -585,8 +585,7 @@
         </div>
       </div>
     </div>
-
-    <script>
+<script>
       let currentUser = "";
       let currentCategory = "小具足";
       let currentSubFolder = "すべて";
@@ -594,26 +593,10 @@
 
       const PASS_CODE = "kobudo4649";
 
-      // ログイン処理
-      function attemptLogin() {
-        const name = document.getElementById("loginName").value.trim();
-        const pass = document.getElementById("loginPass").value.trim();
+      // --- 【データ保存・読み込み機能の追加】 ---
 
-        if (!name) return alert("お名前を入力してください");
-        if (pass !== PASS_CODE) return alert("パスワードが間違っています");
-
-        currentUser = name;
-        document.getElementById("currentUserDisplay").innerText = currentUser;
-        document.getElementById("loginOverlay").style.display = "none";
-      }
-
-      function changeUser() {
-        document.getElementById("loginPass").value = "";
-        document.getElementById("loginOverlay").style.display = "flex";
-      }
-
-      // 階層データ
-      const folders = {
+      // 初期データの定義
+      const defaultFolders = {
         小具足: ["表", "裏"],
         羽手: [],
         斎手: [],
@@ -621,8 +604,7 @@
         居合: [],
       };
 
-      // 動画データ
-      let videoList = [
+      const defaultVideos = [
         {
           id: 1,
           category: "棒",
@@ -642,6 +624,39 @@
         },
       ];
 
+      // ローカルストレージからデータを読み込む（無ければ初期値を使用）
+      let folders =
+        JSON.parse(localStorage.getItem("kobudo_folders")) || defaultFolders;
+      let videoList =
+        JSON.parse(localStorage.getItem("kobudo_videos")) || defaultVideos;
+
+      // データを保存する共通関数
+      function saveData() {
+        localStorage.setItem("kobudo_folders", JSON.stringify(folders));
+        localStorage.setItem("kobudo_videos", JSON.stringify(videoList));
+      }
+
+      // --- 【既存処理の自動保存対応】 ---
+
+      // ログイン処理
+      function attemptLogin() {
+        const name = document.getElementById("loginName").value.trim();
+        const pass = document.getElementById("loginPass").value.trim();
+
+        if (!name) return alert("お名前を入力してください");
+        if (pass !== PASS_CODE) return alert("パスワードが間違っています");
+
+        currentUser = name;
+        document.getElementById("currentUserDisplay").innerText = currentUser;
+        document.getElementById("loginOverlay").style.display = "none";
+      }
+
+      function changeUser() {
+        document.getElementById("loginPass").value = "";
+        document.getElementById("loginOverlay").style.display = "flex";
+      }
+
+      // 初回起動処理
       selectCategory("小具足");
 
       function selectCategory(cat) {
@@ -737,29 +752,34 @@
         document.getElementById(id).style.display = "none";
       }
 
+      // フォルダ（階層）保存時に localStorage へ同期
       function saveFolder() {
         const name = document.getElementById("newFolderName").value.trim();
         if (!name) return alert("階層名を入力してください");
 
         if (!folders[currentCategory].includes(name)) {
           folders[currentCategory].push(name);
+          saveData(); // ★データ保存
           document.getElementById("newFolderName").value = "";
           closeModal("folderModal");
           selectFolder(name);
         }
       }
 
+      // フォルダ削除時に localStorage へ同期
       function deleteFolder(folderName, event) {
         event.stopPropagation();
         if (confirm(`階層「${folderName}」を削除しますか？`)) {
           const idx = folders[currentCategory].indexOf(folderName);
           if (idx > -1) {
             folders[currentCategory].splice(idx, 1);
+            saveData(); // ★データ保存
             selectFolder("すべて");
           }
         }
       }
 
+      // 動画投稿時に localStorage へ同期
       function saveVideo() {
         const title = document.getElementById("newVideoTitle").value.trim();
         const url = document.getElementById("newVideoUrl").value.trim();
@@ -780,6 +800,8 @@
         };
 
         videoList.unshift(newVid);
+        saveData(); // ★データ保存
+
         document.getElementById("newVideoTitle").value = "";
         document.getElementById("newVideoUrl").value = "";
         document.getElementById("newVideoDesc").value = "";
@@ -787,10 +809,12 @@
         renderVideos();
       }
 
+      // 動画削除時に localStorage へ同期
       function deleteVideo(id, event) {
         event.stopPropagation();
         if (confirm("この動画を削除しますか？")) {
           videoList = videoList.filter((v) => v.id !== id);
+          saveData(); // ★データ保存
           renderVideos();
         }
       }
@@ -818,7 +842,6 @@
         renderComments(v);
       }
 
-      // コメント一覧表示（自分の投稿には「削除」ボタンを表示）
       function renderComments(v) {
         const ul = document.getElementById("commentList");
         ul.innerHTML = "";
@@ -833,7 +856,7 @@
         });
       }
 
-      // コメント投稿
+      // コメント追加時に localStorage へ同期
       function addComment() {
         const input = document.getElementById("commentText");
         const text = input.value.trim();
@@ -846,16 +869,18 @@
             author: currentUser,
             text: text,
           });
+          saveData(); // ★データ保存
           renderComments(v);
           input.value = "";
         }
       }
 
-      // 自分のコメントを削除
+      // コメント削除時に localStorage へ同期
       function deleteComment(commentId) {
         const v = videoList.find((item) => item.id === activeVideoId);
         if (v && confirm("コメントを削除しますか？")) {
           v.comments = v.comments.filter((c) => c.id !== commentId);
+          saveData(); // ★データ保存
           renderComments(v);
         }
       }
@@ -865,5 +890,6 @@
         document.getElementById("listView").style.display = "block";
       }
     </script>
+    
   </body>
 </html>
