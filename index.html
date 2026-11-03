@@ -408,17 +408,18 @@
     <!-- 入室ログイン画面 -->
     <div class="login-overlay" id="loginOverlay">
       <div class="login-box">
-        <h2 id="authHeading">部員ログイン</h2>
-        <div class="form-group" id="signupNameGroup" style="display:none">
-          <label for="signupName">部員名</label>
-          <input type="text" id="signupName" autocomplete="name" maxlength="80" placeholder="例：山田太郎" />
+        <h2>部員ログイン認証</h2>
+        <div class="form-group">
+          <label>メールアドレス</label>
+          <input
+            type="email"
+            id="loginEmail"
+            autocomplete="username"
+            placeholder="member@example.com"
+          />
         </div>
         <div class="form-group">
-          <label for="loginEmail">メールアドレス</label>
-          <input type="email" id="loginEmail" autocomplete="username" placeholder="member@example.com" />
-        </div>
-        <div class="form-group">
-          <label for="loginPass">パスワード</label>
+          <label>合言葉（パスワード）</label>
           <input
             type="password"
             id="loginPass"
@@ -431,12 +432,13 @@
           style="width: 100%; margin-top: 10px"
           onclick="attemptLogin()"
         >
-          <span id="authSubmitLabel">ログイン</span>
+          ログイン
         </button>
-        <button type="button" id="authModeToggle" onclick="toggleAuthMode()" style="width:100%;margin-top:12px;background:none;border:0;color:#0284c7;cursor:pointer">
-          アカウントをお持ちでない方はこちら
-        </button>
-        <p id="loginError" role="status" aria-live="polite" style="margin-top:12px;font-size:.9rem"></p>
+        <p
+          id="loginError"
+          role="alert"
+          style="color: #dc2626; margin-top: 12px; font-size: 0.9rem"
+        ></p>
       </div>
     </div>
 
@@ -598,16 +600,16 @@
     </div>
     <script>
       const clientConfig = window.KOBUDO_SUPABASE_CONFIG;
-      const client = clientConfig?.url && clientConfig?.anonKey && window.supabase
-        ? window.supabase.createClient(clientConfig.url, clientConfig.anonKey)
-        : null;
+      const client =
+        clientConfig?.url && clientConfig?.anonKey && window.supabase
+          ? window.supabase.createClient(clientConfig.url, clientConfig.anonKey)
+          : null;
       let currentUser = null;
       let currentDisplayName = "";
       let currentCategory = "小具足";
       let currentSubFolder = "すべて";
       let activeVideoId = null;
       let videoList = [];
-      let authMode = "login";
 
       function showError(error) {
         console.error(error);
@@ -615,7 +617,10 @@
       }
 
       function requireClient() {
-        if (!client) throw new Error("Supabaseの接続設定がありません。README.mdを確認してください。");
+        if (!client)
+          throw new Error(
+            "Supabaseの接続設定がありません。README.mdを確認してください。",
+          );
       }
 
       function getAuthorName(row) {
@@ -633,10 +638,14 @@
         }
 
         const { data: profile, error } = await client
-          .from("profiles").select("display_name").eq("id", user.id).single();
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .single();
         if (error) throw error;
         currentDisplayName = profile.display_name;
-        document.getElementById("currentUserDisplay").textContent = currentDisplayName;
+        document.getElementById("currentUserDisplay").textContent =
+          currentDisplayName;
         overlay.style.display = "none";
         await selectCategory(currentCategory);
       }
@@ -646,52 +655,17 @@
           requireClient();
           const email = document.getElementById("loginEmail").value.trim();
           const password = document.getElementById("loginPass").value;
-          if (!email || !password) throw new Error("メールアドレスとパスワードを入力してください。");
-          const message = document.getElementById("loginError");
-          message.textContent = "";
-          message.style.color = "#dc2626";
-          if (authMode === "signup") {
-            const displayName = document.getElementById("signupName").value.trim();
-            if (!displayName) throw new Error("部員名を入力してください。");
-            const { data, error } = await client.auth.signUp({
-              email,
-              password,
-              options: {
-                data: { display_name: displayName },
-                emailRedirectTo: window.location.origin,
-              },
-            });
-            if (error) throw error;
-            if (!data.session) {
-              message.style.color = "#047857";
-              message.textContent = "確認メールを送信しました。メール内のリンクから登録を完了してください。";
-              document.getElementById("loginPass").value = "";
-            }
-          } else {
-            const { error } = await client.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-          }
+          if (!email || !password)
+            throw new Error("メールアドレスとパスワードを入力してください。");
+          document.getElementById("loginError").textContent = "";
+          const { error } = await client.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (error) throw error;
         } catch (error) {
-          const message = document.getElementById("loginError");
-          message.style.color = "#dc2626";
-          message.textContent = error.message;
+          document.getElementById("loginError").textContent = error.message;
         }
-      }
-
-      function toggleAuthMode() {
-        authMode = authMode === "login" ? "signup" : "login";
-        const isSignup = authMode === "signup";
-        document.getElementById("authHeading").textContent =
-          isSignup ? "部員アカウント登録" : "部員ログイン";
-        document.getElementById("signupNameGroup").style.display =
-          isSignup ? "block" : "none";
-        document.getElementById("authSubmitLabel").textContent =
-          isSignup ? "アカウントを作成" : "ログイン";
-        document.getElementById("authModeToggle").textContent =
-          isSignup ? "ログインはこちら" : "アカウントをお持ちでない方はこちら";
-        document.getElementById("loginPass").autocomplete =
-          isSignup ? "new-password" : "current-password";
-        document.getElementById("loginError").textContent = "";
       }
 
       async function changeUser() {
@@ -699,7 +673,9 @@
           const { error } = await client.auth.signOut();
           if (error) throw error;
           document.getElementById("loginPass").value = "";
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function selectCategory(cat) {
@@ -713,19 +689,27 @@
         if (!currentUser) return;
         try {
           await Promise.all([renderFolders(), renderVideos()]);
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function selectFolder(folderName) {
         currentSubFolder = folderName;
         document.getElementById("currentFolderText").textContent = folderName;
-        try { await Promise.all([renderFolders(), renderVideos()]); }
-        catch (error) { showError(error); }
+        try {
+          await Promise.all([renderFolders(), renderVideos()]);
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function renderFolders() {
-        const { data, error } = await client.from("folders").select("name")
-          .eq("category", currentCategory).order("name");
+        const { data, error } = await client
+          .from("folders")
+          .select("name")
+          .eq("category", currentCategory)
+          .order("name");
         if (error) throw error;
         const container = document.getElementById("folderContainer");
         container.replaceChildren();
@@ -752,10 +736,15 @@
       }
 
       async function renderVideos() {
-        let query = client.from("videos")
-          .select("id, category, folder, title, description, url, author_id, created_at, profiles(display_name)")
-          .eq("category", currentCategory).order("created_at", { ascending: false });
-        if (currentSubFolder !== "すべて") query = query.eq("folder", currentSubFolder);
+        let query = client
+          .from("videos")
+          .select(
+            "id, category, folder, title, description, url, author_id, created_at, profiles(display_name)",
+          )
+          .eq("category", currentCategory)
+          .order("created_at", { ascending: false });
+        if (currentSubFolder !== "すべて")
+          query = query.eq("folder", currentSubFolder);
         const { data, error } = await query;
         if (error) throw error;
         videoList = data;
@@ -763,8 +752,10 @@
         grid.replaceChildren();
         if (!data.length) {
           const empty = document.createElement("p");
-          empty.style.cssText = "color:#94a3b8;font-size:.9rem;grid-column:1/-1;padding:20px 0";
-          empty.textContent = "まだ動画がありません。「＋ 動画を投稿」ボタンから追加してください。";
+          empty.style.cssText =
+            "color:#94a3b8;font-size:.9rem;grid-column:1/-1;padding:20px 0";
+          empty.textContent =
+            "まだ動画がありません。「＋ 動画を投稿」ボタンから追加してください。";
           grid.appendChild(empty);
           return;
         }
@@ -818,35 +809,54 @@
         const name = document.getElementById("newFolderName").value.trim();
         if (!name) return alert("階層名を入力してください");
         try {
-          const { error } = await client.from("folders").insert({ category: currentCategory, name });
+          const { error } = await client
+            .from("folders")
+            .insert({ category: currentCategory, name });
           if (error) throw error;
           document.getElementById("newFolderName").value = "";
           closeModal("folderModal");
           await selectFolder(name);
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function deleteFolder(folderName, event) {
         event.stopPropagation();
-        if (!confirm(`階層「${folderName}」を削除しますか？動画は削除されません。`)) return;
+        if (
+          !confirm(
+            `階層「${folderName}」を削除しますか？動画は削除されません。`,
+          )
+        )
+          return;
         try {
-          const { error } = await client.from("folders")
-            .delete().eq("category", currentCategory).eq("name", folderName);
+          const { error } = await client
+            .from("folders")
+            .delete()
+            .eq("category", currentCategory)
+            .eq("name", folderName);
           if (error) throw error;
           await selectFolder("すべて");
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function saveVideo() {
         const title = document.getElementById("newVideoTitle").value.trim();
         const url = document.getElementById("newVideoUrl").value.trim();
-        const description = document.getElementById("newVideoDesc").value.trim();
+        const description = document
+          .getElementById("newVideoDesc")
+          .value.trim();
         if (!title) return alert("技名・見出しを入力してください");
         try {
           const { error } = await client.from("videos").insert({
             category: currentCategory,
             folder: currentSubFolder === "すべて" ? null : currentSubFolder,
-            title, url, description, author_id: currentUser.id,
+            title,
+            url,
+            description,
+            author_id: currentUser.id,
           });
           if (error) throw error;
           document.getElementById("newVideoTitle").value = "";
@@ -854,17 +864,22 @@
           document.getElementById("newVideoDesc").value = "";
           closeModal("videoModal");
           await renderVideos();
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function deleteVideo(id, event) {
         event.stopPropagation();
-        if (!confirm("この動画を削除しますか？コメントも削除されます。")) return;
+        if (!confirm("この動画を削除しますか？コメントも削除されます。"))
+          return;
         try {
           const { error } = await client.from("videos").delete().eq("id", id);
           if (error) throw error;
           await renderVideos();
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function openDetail(id) {
@@ -875,7 +890,8 @@
         document.getElementById("detailView").style.display = "block";
         document.getElementById("detailTitle").textContent =
           `${video.title} （投稿者: ${getAuthorName(video)}）`;
-        document.getElementById("detailDesc").textContent = video.description || "";
+        document.getElementById("detailDesc").textContent =
+          video.description || "";
         const playerBox = document.getElementById("playerBox");
         playerBox.replaceChildren();
         const videoUrl = getYouTubeEmbedUrl(video.url);
@@ -889,27 +905,43 @@
         } else {
           playerBox.textContent = "▶ YouTube動画のURLを登録してください";
         }
-        try { await renderComments(); }
-        catch (error) { showError(error); }
+        try {
+          await renderComments();
+        } catch (error) {
+          showError(error);
+        }
       }
 
       function getYouTubeEmbedUrl(value) {
         try {
           const url = new URL(value);
           let id = "";
-          if (["www.youtube.com", "youtube.com", "m.youtube.com"].includes(url.hostname)) {
-            id = url.pathname === "/watch" ? url.searchParams.get("v") : url.pathname.split("/").filter(Boolean).at(-1);
+          if (
+            ["www.youtube.com", "youtube.com", "m.youtube.com"].includes(
+              url.hostname,
+            )
+          ) {
+            id =
+              url.pathname === "/watch"
+                ? url.searchParams.get("v")
+                : url.pathname.split("/").filter(Boolean).at(-1);
           } else if (url.hostname === "youtu.be") {
             id = url.pathname.slice(1);
           }
-          return id && /^[\w-]{11}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : "";
-        } catch { return ""; }
+          return id && /^[\w-]{11}$/.test(id)
+            ? `https://www.youtube-nocookie.com/embed/${id}`
+            : "";
+        } catch {
+          return "";
+        }
       }
 
       async function renderComments() {
-        const { data, error } = await client.from("comments")
+        const { data, error } = await client
+          .from("comments")
           .select("id, body, author_id, created_at, profiles(display_name)")
-          .eq("video_id", activeVideoId).order("created_at");
+          .eq("video_id", activeVideoId)
+          .order("created_at");
         if (error) throw error;
         const list = document.getElementById("commentList");
         list.replaceChildren();
@@ -937,21 +969,31 @@
         const body = input.value.trim();
         if (!body) return;
         try {
-          const { error } = await client.from("comments")
-            .insert({ video_id: activeVideoId, author_id: currentUser.id, body });
+          const { error } = await client.from("comments").insert({
+            video_id: activeVideoId,
+            author_id: currentUser.id,
+            body,
+          });
           if (error) throw error;
           input.value = "";
           await renderComments();
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function deleteComment(commentId) {
         if (!confirm("コメントを削除しますか？")) return;
         try {
-          const { error } = await client.from("comments").delete().eq("id", commentId);
+          const { error } = await client
+            .from("comments")
+            .delete()
+            .eq("id", commentId);
           if (error) throw error;
           await renderComments();
-        } catch (error) { showError(error); }
+        } catch (error) {
+          showError(error);
+        }
       }
 
       function showList() {
@@ -968,10 +1010,13 @@
             updateLoginState(session?.user || null).catch(showError);
           }
         });
-        client.auth.getSession().then(({ data, error }) => {
-          if (error) throw error;
-          return updateLoginState(data.session?.user || null);
-        }).catch(showError);
+        client.auth
+          .getSession()
+          .then(({ data, error }) => {
+            if (error) throw error;
+            return updateLoginState(data.session?.user || null);
+          })
+          .catch(showError);
       }
     </script>
   </body>
