@@ -92,6 +92,23 @@
         border-radius: 6px;
         text-align: center;
       }
+      .category-item {
+        display: flex;
+        flex: 1;
+        min-width: 150px;
+        gap: 4px;
+      }
+      .category-item .cat-btn {
+        min-width: 0;
+      }
+      .category-delete-btn {
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        background: #fff;
+        color: #b91c1c;
+        cursor: pointer;
+        padding: 0 8px;
+      }
       .cat-btn.active {
         background: #111;
         color: #fff;
@@ -721,13 +738,25 @@
         const container = document.getElementById("categoryContainer");
         const addButton = container.querySelector("#addCategoryButton");
         container.replaceChildren();
+        if (!data.some(({ name }) => name === currentCategory)) {
+          currentCategory = data[0]?.name || "";
+        }
         data.forEach(({ name }, index) => {
+          const item = document.createElement("div");
+          item.className = "category-item";
           const button = document.createElement("button");
           button.className = "cat-btn";
           button.dataset.category = name;
           button.textContent = `${index + 1}. ${name}`;
           button.onclick = () => selectCategory(name);
-          container.appendChild(button);
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "category-delete-btn";
+          deleteButton.type = "button";
+          deleteButton.textContent = "削除";
+          deleteButton.setAttribute("aria-label", `カテゴリ「${name}」を削除`);
+          deleteButton.onclick = (event) => deleteCategory(name, event);
+          item.append(button, deleteButton);
+          container.appendChild(item);
         });
         container.appendChild(addButton);
         container.querySelectorAll(".cat-btn").forEach((button) => {
@@ -852,6 +881,62 @@
       }
       function closeModal(id) {
         document.getElementById(id).style.display = "none";
+      }
+
+      async function deleteCategory(name, event) {
+        event.stopPropagation();
+        const { data: categories, error: categoriesError } = await client
+          .from("categories")
+          .select("name");
+        if (categoriesError) return showError(categoriesError);
+        if (categories.length <= 1) {
+          return alert("最後のカテゴリは削除できません。");
+        }
+        if (
+          !confirm(
+            `カテゴリ「${name}」を削除しますか？動画または階層があるカテゴリは削除できません。`,
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const [folders, videos] = await Promise.all([
+            client
+              .from("folders")
+              .select("id", { count: "exact", head: true })
+              .eq("category", name),
+            client
+              .from("videos")
+              .select("id", { count: "exact", head: true })
+              .eq("category", name),
+          ]);
+          if (folders.error) throw folders.error;
+          if (videos.error) throw videos.error;
+          if (folders.count || videos.count) {
+            return alert("動画または階層があるカテゴリは削除できません。");
+          }
+
+          const { data, error } = await client
+            .from("categories")
+            .delete()
+            .eq("name", name)
+            .select("name");
+          if (error) {
+            if (error.code === "23503") {
+              return alert("動画または階層が追加されたため削除できませんでした。");
+            }
+            throw error;
+          }
+          if (!data.length) {
+            throw new Error("カテゴリを削除できませんでした。権限を確認してください。");
+          }
+          await renderCategories();
+          await renderCategories();
+          await selectCategory(currentCategory);
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function saveCategory() {

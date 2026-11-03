@@ -119,6 +119,9 @@ create policy "Members can read categories"
 drop policy if exists "Members can create categories" on public.categories;
 create policy "Members can create categories"
   on public.categories for insert to authenticated with check (true);
+drop policy if exists "Members can delete categories" on public.categories;
+create policy "Members can delete categories"
+  on public.categories for delete to authenticated using (true);
 
 drop policy if exists "Members can read folders" on public.folders;
 create policy "Members can read folders"
@@ -151,7 +154,7 @@ create policy "Authors can delete their comments"
   on public.comments for delete to authenticated using (author_id = auth.uid());
 
 grant select on public.profiles to authenticated;
-grant select, insert on public.categories to authenticated;
+grant select, insert, delete on public.categories to authenticated;
 grant select, insert, delete on public.folders to authenticated;
 grant select, insert, delete on public.videos to authenticated;
 grant select, insert, delete on public.comments to authenticated;
