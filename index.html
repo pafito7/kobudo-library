@@ -74,7 +74,7 @@
         cursor: pointer;
       }
 
-      /* 1〜5 カテゴリ切り替えボタン */
+      /* カテゴリ切り替えボタン */
       .nav-categories {
         display: flex;
         gap: 8px;
@@ -451,20 +451,14 @@
 
       <!-- メイン一覧画面 -->
       <div id="listView">
-        <!-- 1〜5 カテゴリ選択 -->
-        <div class="nav-categories">
-          <button class="cat-btn active" onclick="selectCategory('小具足')">
-            1. 小具足
-          </button>
-          <button class="cat-btn" onclick="selectCategory('羽手')">
-            2. 羽手
-          </button>
-          <button class="cat-btn" onclick="selectCategory('斎手')">
-            3. 斎手
-          </button>
-          <button class="cat-btn" onclick="selectCategory('棒')">4. 棒</button>
-          <button class="cat-btn" onclick="selectCategory('居合')">
-            5. 居合
+        <!-- カテゴリ選択 -->
+        <div class="nav-categories" id="categoryContainer">
+          <button
+            class="cat-btn"
+            id="addCategoryButton"
+            onclick="openAddCategoryModal()"
+          >
+            ＋ カテゴリを追加
           </button>
         </div>
 
@@ -548,6 +542,28 @@
             キャンセル
           </button>
           <button class="btn-save" onclick="saveFolder()">追加する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- カテゴリ追加 モーダル -->
+    <div class="modal-overlay" id="categoryModal">
+      <div class="modal-content">
+        <h3>新しいカテゴリを追加</h3>
+        <div class="form-group">
+          <label for="newCategoryName">カテゴリ名</label>
+          <input
+            type="text"
+            id="newCategoryName"
+            maxlength="80"
+            placeholder="カテゴリ名を入力"
+          />
+        </div>
+        <div class="modal-btns">
+          <button class="btn-cancel" onclick="closeModal('categoryModal')">
+            キャンセル
+          </button>
+          <button class="btn-save" onclick="saveCategory()">追加する</button>
         </div>
       </div>
     </div>
@@ -647,6 +663,7 @@
         document.getElementById("currentUserDisplay").textContent =
           currentDisplayName;
         overlay.style.display = "none";
+        await renderCategories();
         await selectCategory(currentCategory);
       }
 
@@ -684,7 +701,7 @@
         document.getElementById("currentCategoryText").textContent = cat;
         document.getElementById("currentFolderText").textContent = "すべて";
         document.querySelectorAll(".cat-btn").forEach((btn) => {
-          btn.classList.toggle("active", btn.textContent.includes(cat));
+          btn.classList.toggle("active", btn.dataset.category === cat);
         });
         if (!currentUser) return;
         try {
@@ -692,6 +709,33 @@
         } catch (error) {
           showError(error);
         }
+      }
+
+      async function renderCategories() {
+        const { data, error } = await client
+          .from("categories")
+          .select("name")
+          .order("id");
+        if (error) throw error;
+
+        const container = document.getElementById("categoryContainer");
+        const addButton = container.querySelector("#addCategoryButton");
+        container.replaceChildren();
+        data.forEach(({ name }, index) => {
+          const button = document.createElement("button");
+          button.className = "cat-btn";
+          button.dataset.category = name;
+          button.textContent = `${index + 1}. ${name}`;
+          button.onclick = () => selectCategory(name);
+          container.appendChild(button);
+        });
+        container.appendChild(addButton);
+        container.querySelectorAll(".cat-btn").forEach((button) => {
+          button.classList.toggle(
+            "active",
+            button.dataset.category === currentCategory,
+          );
+        });
       }
 
       async function selectFolder(folderName) {
@@ -797,12 +841,32 @@
       function openAddFolderModal() {
         document.getElementById("folderModal").style.display = "flex";
       }
+      function openAddCategoryModal() {
+        document.getElementById("newCategoryName").value = "";
+        document.getElementById("categoryModal").style.display = "flex";
+        document.getElementById("newCategoryName").focus();
+      }
       function openAddVideoModal() {
         document.getElementById("newVideoAuthor").value = currentDisplayName;
         document.getElementById("videoModal").style.display = "flex";
       }
       function closeModal(id) {
         document.getElementById(id).style.display = "none";
+      }
+
+      async function saveCategory() {
+        const name = document.getElementById("newCategoryName").value.trim();
+        if (!name) return alert("カテゴリ名を入力してください");
+        if (name.length > 80) return alert("カテゴリ名は80文字以内で入力してください");
+        try {
+          const { error } = await client.from("categories").insert({ name });
+          if (error) throw error;
+          closeModal("categoryModal");
+          await renderCategories();
+          await selectCategory(name);
+        } catch (error) {
+          showError(error);
+        }
       }
 
       async function saveFolder() {
