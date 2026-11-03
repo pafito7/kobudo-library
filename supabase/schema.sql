@@ -1,0 +1,113 @@
+create table if not exists public.profiles (
+  id uuid primary key references auth.users (id) on delete cascade,
+  display_name text not null check (char_length(display_name) between 1 and 80),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.folders (
+  id uuid primary key default gen_random_uuid(),
+  category text not null check (category in ('小具足', '羽手', '斎手', '棒', '居合')),
+  name text not null check (char_length(name) between 1 and 80),
+  created_by uuid default auth.uid() references auth.users (id),
+  created_at timestamptz not null default now(),
+  unique (category, name)
+);
+
+alter table public.folders alter column created_by drop not null;
+
+create table if not exists public.videos (
+  id uuid primary key default gen_random_uuid(),
+  category text not null check (category in ('小具足', '羽手', '斎手', '棒', '居合')),
+  folder text,
+  title text not null check (char_length(title) between 1 and 200),
+  description text not null default '',
+  url text not null default '',
+  author_id uuid not null default auth.uid() references public.profiles (id),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.comments (
+  id uuid primary key default gen_random_uuid(),
+  video_id uuid not null references public.videos (id) on delete cascade,
+  author_id uuid not null default auth.uid() references public.profiles (id),
+  body text not null check (char_length(body) between 1 and 5000),
+  created_at timestamptz not null default now()
+);
+
+insert into public.folders (category, name, created_by)
+values
+  ('小具足', '表', null),
+  ('小具足', '裏', null),
+  ('棒', '物見', null),
+  ('棒', '笠外し', null)
+on conflict (category, name) do nothing;
+
+create or replace function public.create_profile_for_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  profile_name text;
+begin
+  profile_name := nullif(trim(new.raw_user_meta_data ->> 'display_name'), '');
+  if profile_name is null then
+    profile_name := split_part(new.email, '@', 1);
+  end if;
+
+  insert into public.profiles (id, display_name)
+  values (new.id, left(profile_name, 80));
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.create_profile_for_new_user();
+
+alter table public.profiles enable row level security;
+alter table public.folders enable row level security;
+alter table public.videos enable row level security;
+alter table public.comments enable row level security;
+
+drop policy if exists "Members can read profiles" on public.profiles;
+create policy "Members can read profiles"
+  on public.profiles for select to authenticated using (true);
+
+drop policy if exists "Members can read folders" on public.folders;
+create policy "Members can read folders"
+  on public.folders for select to authenticated using (true);
+drop policy if exists "Members can create folders" on public.folders;
+create policy "Members can create folders"
+  on public.folders for insert to authenticated with check (created_by = auth.uid());
+drop policy if exists "Members can delete folders" on public.folders;
+create policy "Members can delete folders"
+  on public.folders for delete to authenticated using (true);
+
+drop policy if exists "Members can read videos" on public.videos;
+create policy "Members can read videos"
+  on public.videos for select to authenticated using (true);
+drop policy if exists "Members can create videos as themselves" on public.videos;
+create policy "Members can create videos as themselves"
+  on public.videos for insert to authenticated with check (author_id = auth.uid());
+drop policy if exists "Authors can delete their videos" on public.videos;
+create policy "Authors can delete their videos"
+  on public.videos for delete to authenticated using (author_id = auth.uid());
+
+drop policy if exists "Members can read comments" on public.comments;
+create policy "Members can read comments"
+  on public.comments for select to authenticated using (true);
+drop policy if exists "Members can create comments as themselves" on public.comments;
+create policy "Members can create comments as themselves"
+  on public.comments for insert to authenticated with check (author_id = auth.uid());
+drop policy if exists "Authors can delete their comments" on public.comments;
+create policy "Authors can delete their comments"
+  on public.comments for delete to authenticated using (author_id = auth.uid());
+
+grant select on public.profiles to authenticated;
+grant select, insert, delete on public.folders to authenticated;
+grant select, insert, delete on public.videos to authenticated;
+grant select, insert, delete on public.comments to authenticated;
+revoke all on function public.create_profile_for_new_user() from public, anon, authenticated;
