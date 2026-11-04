@@ -54,6 +54,21 @@
         text-align: center;
         color: #0f172a;
       }
+      .auth-switch-btn {
+        width: 100%;
+        margin-top: 12px;
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        background: #fff;
+        color: #334155;
+        cursor: pointer;
+      }
+      .signup-form {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+      }
 
       /* ヘッダーユーザー表示 */
       .user-bar {
@@ -451,6 +466,37 @@
         >
           ログイン
         </button>
+        <button
+          class="auth-switch-btn"
+          id="showSignupButton"
+          type="button"
+          aria-expanded="false"
+          aria-controls="signupForm"
+          onclick="toggleSignupForm()"
+        >
+          新規登録はこちら
+        </button>
+        <div class="signup-form" id="signupForm" hidden>
+          <h2>新規部員登録</h2>
+          <div class="form-group">
+            <label for="signupDisplayName">名前</label>
+            <input
+              type="text"
+              id="signupDisplayName"
+              maxlength="80"
+              autocomplete="name"
+              placeholder="表示する名前"
+            />
+          </div>
+          <button
+            class="btn-save"
+            type="button"
+            style="width: 100%; margin-top: 4px"
+            onclick="attemptSignup()"
+          >
+            新規登録
+          </button>
+        </div>
         <p
           id="loginError"
           role="alert"
@@ -697,6 +743,41 @@
             password,
           });
           if (error) throw error;
+        } catch (error) {
+          document.getElementById("loginError").textContent = error.message;
+        }
+      }
+
+      function toggleSignupForm() {
+        const form = document.getElementById("signupForm");
+        const button = document.getElementById("showSignupButton");
+        const isExpanded = button.getAttribute("aria-expanded") === "true";
+        form.hidden = isExpanded;
+        button.setAttribute("aria-expanded", String(!isExpanded));
+        button.textContent = isExpanded ? "新規登録はこちら" : "登録欄を閉じる";
+      }
+
+      async function attemptSignup() {
+        try {
+          requireClient();
+          const email = document.getElementById("loginEmail").value.trim();
+          const password = document.getElementById("loginPass").value;
+          const displayName = document
+            .getElementById("signupDisplayName")
+            .value.trim();
+          if (!displayName || !email || !password)
+            throw new Error("名前、メールアドレス、パスワードを入力してください。");
+          document.getElementById("loginError").textContent = "";
+          const { data, error } = await client.auth.signUp({
+            email,
+            password,
+            options: { data: { display_name: displayName } },
+          });
+          if (error) throw error;
+          if (!data.session) {
+            document.getElementById("loginError").textContent =
+              "確認メールを送信しました。メール内のリンクから登録を完了してください。";
+          }
         } catch (error) {
           document.getElementById("loginError").textContent = error.message;
         }
