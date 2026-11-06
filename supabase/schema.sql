@@ -139,6 +139,12 @@ create policy "Members can read videos"
 drop policy if exists "Members can create videos as themselves" on public.videos;
 create policy "Members can create videos as themselves"
   on public.videos for insert to authenticated with check (author_id = auth.uid());
+drop policy if exists "Authors can update their videos" on public.videos;
+drop policy if exists "Members can update videos" on public.videos;
+create policy "Members can update videos"
+  on public.videos for update to authenticated
+  using (true)
+  with check (true);
 drop policy if exists "Authors can delete their videos" on public.videos;
 create policy "Authors can delete their videos"
   on public.videos for delete to authenticated using (author_id = auth.uid());
@@ -156,6 +162,6 @@ create policy "Authors can delete their comments"
 grant select on public.profiles to authenticated;
 grant select, insert, delete on public.categories to authenticated;
 grant select, insert, delete on public.folders to authenticated;
-grant select, insert, delete on public.videos to authenticated;
+grant select, insert, update, delete on public.videos to authenticated;
 grant select, insert, delete on public.comments to authenticated;
 revoke all on function public.create_profile_for_new_user() from public, anon, authenticated;

@@ -64,10 +64,12 @@
         color: #334155;
         cursor: pointer;
       }
-      .signup-form {
-        margin-top: 18px;
-        padding-top: 16px;
-        border-top: 1px solid #e2e8f0;
+      .login-intro {
+        margin: -8px 0 20px;
+        color: #64748b;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        text-align: center;
       }
 
       /* ヘッダーユーザー表示 */
@@ -344,6 +346,15 @@
         cursor: pointer;
         font-size: 0.75rem;
       }
+      .card-edit-btn {
+        background: #0284c7;
+        color: white;
+        border: none;
+        padding: 2px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+      }
 
       /* 詳細・再生画面 */
       .detail-view {
@@ -440,61 +451,88 @@
     <!-- 入室ログイン画面 -->
     <div class="login-overlay" id="loginOverlay">
       <div class="login-box">
-        <h2>部員ログイン認証</h2>
-        <div class="form-group">
-          <label>メールアドレス</label>
-          <input
-            type="email"
-            id="loginEmail"
-            autocomplete="username"
-            placeholder="member@example.com"
-          />
-        </div>
-        <div class="form-group">
-          <label>合言葉（パスワード）</label>
-          <input
-            type="password"
-            id="loginPass"
-            autocomplete="current-password"
-            placeholder="パスワードを入力"
-          />
-        </div>
-        <button
-          class="btn-save"
-          style="width: 100%; margin-top: 10px"
-          onclick="attemptLogin()"
-        >
-          ログイン
-        </button>
-        <button
-          class="auth-switch-btn"
-          id="showSignupButton"
-          type="button"
-          aria-expanded="false"
-          aria-controls="signupForm"
-          onclick="toggleSignupForm()"
-        >
-          新規登録はこちら
-        </button>
-        <div class="signup-form" id="signupForm" hidden>
-          <h2>新規部員登録</h2>
+        <h2 id="authTitle">部員ログイン</h2>
+        <p class="login-intro" id="authIntro">
+          登録済みのメールアドレスとパスワードを入力してください。
+        </p>
+        <div id="loginForm">
           <div class="form-group">
-            <label for="signupDisplayName">名前</label>
+            <label for="loginEmail">メールアドレス</label>
             <input
-              type="text"
-              id="signupDisplayName"
-              maxlength="80"
-              autocomplete="name"
-              placeholder="表示する名前"
+              type="email"
+              id="loginEmail"
+              autocomplete="username"
+              placeholder="member@example.com"
+            />
+          </div>
+          <div class="form-group">
+            <label for="loginPass">パスワード</label>
+            <input
+              type="password"
+              id="loginPass"
+              autocomplete="current-password"
+              placeholder="パスワードを入力"
             />
           </div>
           <button
             class="btn-save"
             type="button"
-            style="width: 100%; margin-top: 4px"
+            style="width: 100%; margin-top: 10px"
+            onclick="attemptLogin()"
+          >
+            ログイン
+          </button>
+          <button
+            class="auth-switch-btn"
+            type="button"
+            onclick="setAuthMode('signup')"
+          >
+            はじめての方はこちら（新規登録）
+          </button>
+        </div>
+        <div id="signupForm" hidden>
+          <div class="form-group">
+            <label for="signupDisplayName">名前（画面に表示する名前）</label>
+            <input
+              type="text"
+              id="signupDisplayName"
+              maxlength="80"
+              autocomplete="name"
+              placeholder="例：山田 太郎"
+            />
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">メールアドレス</label>
+            <input
+              type="email"
+              id="signupEmail"
+              autocomplete="email"
+              placeholder="member@example.com"
+            />
+          </div>
+          <div class="form-group">
+            <label for="signupPass">パスワード</label>
+            <input
+              type="password"
+              id="signupPass"
+              autocomplete="new-password"
+              placeholder="パスワードを設定"
+            />
+          </div>
+          <button
+            class="btn-save"
+            type="button"
+            style="width: 100%; margin-top: 10px"
             onclick="attemptSignup()"
           >
-            新規登録
+            アカウントを作成
+          </button>
+          <button
+            class="auth-switch-btn"
+            type="button"
+            onclick="setAuthMode('login')"
+          >
+            ログイン画面に戻る
           </button>
         </div>
         <p
@@ -631,10 +669,10 @@
       </div>
     </div>
 
-    <!-- 動画追加 モーダル -->
+    <!-- 動画追加・編集 モーダル -->
     <div class="modal-overlay" id="videoModal">
       <div class="modal-content">
-        <h3>動画を投稿</h3>
+        <h3 id="videoModalTitle">動画を投稿</h3>
         <div class="form-group">
           <label>技名・見出し</label>
           <input type="text" id="newVideoTitle" placeholder="例：物見 一の型" />
@@ -664,13 +702,14 @@
           ></textarea>
         </div>
         <div class="modal-btns">
-          <button class="btn-cancel" onclick="closeModal('videoModal')">
+          <button class="btn-cancel" onclick="closeVideoModal()">
             キャンセル
           </button>
           <button
             class="btn-save"
             style="background: #0284c7"
             onclick="saveVideo()"
+            id="saveVideoButton"
           >
             投稿する
           </button>
@@ -688,6 +727,7 @@
       let currentCategory = "小具足";
       let currentSubFolder = "すべて";
       let activeVideoId = null;
+      let editingVideoId = null;
       let videoList = [];
 
       function showError(error) {
@@ -748,20 +788,35 @@
         }
       }
 
-      function toggleSignupForm() {
-        const form = document.getElementById("signupForm");
-        const button = document.getElementById("showSignupButton");
-        const isExpanded = button.getAttribute("aria-expanded") === "true";
-        form.hidden = isExpanded;
-        button.setAttribute("aria-expanded", String(!isExpanded));
-        button.textContent = isExpanded ? "新規登録はこちら" : "登録欄を閉じる";
+      function setAuthMode(mode) {
+        const isSignup = mode === "signup";
+        if (isSignup) {
+          document.getElementById("signupEmail").value =
+            document.getElementById("loginEmail").value;
+          document.getElementById("signupPass").value =
+            document.getElementById("loginPass").value;
+        } else {
+          document.getElementById("loginEmail").value =
+            document.getElementById("signupEmail").value;
+          document.getElementById("loginPass").value =
+            document.getElementById("signupPass").value;
+        }
+        document.getElementById("loginForm").hidden = isSignup;
+        document.getElementById("signupForm").hidden = !isSignup;
+        document.getElementById("authTitle").textContent = isSignup
+          ? "新規部員登録"
+          : "部員ログイン";
+        document.getElementById("authIntro").textContent = isSignup
+          ? "名前・メールアドレス・パスワードを入力してアカウントを作成してください。"
+          : "登録済みのメールアドレスとパスワードを入力してください。";
+        document.getElementById("loginError").textContent = "";
       }
 
       async function attemptSignup() {
         try {
           requireClient();
-          const email = document.getElementById("loginEmail").value.trim();
-          const password = document.getElementById("loginPass").value;
+          const email = document.getElementById("signupEmail").value.trim();
+          const password = document.getElementById("signupPass").value;
           const displayName = document
             .getElementById("signupDisplayName")
             .value.trim();
@@ -935,6 +990,11 @@
           const author = document.createElement("span");
           author.textContent = `👤 ${getAuthorName(video)} (${new Date(video.created_at).toLocaleDateString()})`;
           meta.appendChild(author);
+          const edit = document.createElement("button");
+          edit.className = "card-edit-btn";
+          edit.textContent = "編集";
+          edit.onclick = (event) => openEditVideoModal(video.id, event);
+          meta.appendChild(edit);
           if (video.author_id === currentUser.id) {
             const del = document.createElement("button");
             del.className = "card-del-btn";
@@ -957,8 +1017,31 @@
         document.getElementById("newCategoryName").focus();
       }
       function openAddVideoModal() {
+        editingVideoId = null;
+        document.getElementById("videoModalTitle").textContent = "動画を投稿";
+        document.getElementById("saveVideoButton").textContent = "投稿する";
+        document.getElementById("newVideoTitle").value = "";
         document.getElementById("newVideoAuthor").value = currentDisplayName;
+        document.getElementById("newVideoUrl").value = "";
+        document.getElementById("newVideoDesc").value = "";
         document.getElementById("videoModal").style.display = "flex";
+      }
+      function openEditVideoModal(videoId, event) {
+        event.stopPropagation();
+        const video = videoList.find((item) => item.id === videoId);
+        if (!video) return;
+        editingVideoId = videoId;
+        document.getElementById("videoModalTitle").textContent = "動画を編集";
+        document.getElementById("saveVideoButton").textContent = "保存する";
+        document.getElementById("newVideoTitle").value = video.title;
+        document.getElementById("newVideoAuthor").value = getAuthorName(video);
+        document.getElementById("newVideoUrl").value = video.url;
+        document.getElementById("newVideoDesc").value = video.description || "";
+        document.getElementById("videoModal").style.display = "flex";
+      }
+      function closeVideoModal() {
+        editingVideoId = null;
+        closeModal("videoModal");
       }
       function closeModal(id) {
         document.getElementById(id).style.display = "none";
@@ -1080,19 +1163,30 @@
           .value.trim();
         if (!title) return alert("技名・見出しを入力してください");
         try {
-          const { error } = await client.from("videos").insert({
-            category: currentCategory,
-            folder: currentSubFolder === "すべて" ? null : currentSubFolder,
-            title,
-            url,
-            description,
-            author_id: currentUser.id,
-          });
-          if (error) throw error;
-          document.getElementById("newVideoTitle").value = "";
-          document.getElementById("newVideoUrl").value = "";
-          document.getElementById("newVideoDesc").value = "";
-          closeModal("videoModal");
+          if (editingVideoId) {
+            const { data, error } = await client
+              .from("videos")
+              .update({ title, url, description })
+              .eq("id", editingVideoId)
+              .select("id")
+              .maybeSingle();
+            if (error) throw error;
+            if (!data)
+              throw new Error(
+                "投稿を編集できませんでした。権限を確認してください。",
+              );
+          } else {
+            const { error } = await client.from("videos").insert({
+              category: currentCategory,
+              folder: currentSubFolder === "すべて" ? null : currentSubFolder,
+              title,
+              url,
+              description,
+              author_id: currentUser.id,
+            });
+            if (error) throw error;
+          }
+          closeVideoModal();
           await renderVideos();
         } catch (error) {
           showError(error);
